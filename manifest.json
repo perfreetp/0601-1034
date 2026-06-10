@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "MetaVenue — 元宇宙会场",
+  "version": "1.0.0",
+  "description": "将普通网页会场变成轻量虚拟空间，面向线上活动主持人",
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

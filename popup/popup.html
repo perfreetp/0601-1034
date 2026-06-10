@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetaVenue — 元宇宙会场</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-icon">🌐</span>
+        <span class="logo-text">MetaVenue</span>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-panel="space">
+          <span class="nav-icon">🏛️</span>
+          <span class="nav-label">空间</span>
+        </button>
+        <button class="nav-item" data-panel="seats">
+          <span class="nav-icon">💺</span>
+          <span class="nav-label">席位</span>
+        </button>
+        <button class="nav-item" data-panel="agenda">
+          <span class="nav-icon">📋</span>
+          <span class="nav-label">议程</span>
+        </button>
+        <button class="nav-item" data-panel="interact">
+          <span class="nav-icon">🎯</span>
+          <span class="nav-label">互动</span>
+        </button>
+        <button class="nav-item" data-panel="booth">
+          <span class="nav-icon">🏪</span>
+          <span class="nav-label">展台</span>
+        </button>
+        <button class="nav-item" data-panel="guide">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label">导览</span>
+        </button>
+        <button class="nav-item" data-panel="review">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">复盘</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="btn-activate" class="btn-activate">🚀 启动会场</button>
+      </div>
+    </aside>
+    <main class="main">
+      <!-- 空间面板 -->
+      <section class="panel active" id="panel-space">
+        <h2 class="panel-title">空间设置</h2>
+        <p class="panel-desc">选择会场主题风格、入口海报和背景音乐</p>
+        <div class="form-group">
+          <label class="form-label">会场主题</label>
+          <div class="theme-grid">
+            <div class="theme-card selected" data-theme="conference">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)"></div>
+              <span>会议大厅</span>
+            </div>
+            <div class="theme-card" data-theme="cyberpunk">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#0d0221,#0a0a23,#150050)"></div>
+              <span>赛博朋克</span>
+            </div>
+            <div class="theme-card" data-theme="garden">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#1b4332,#2d6a4f,#40916c)"></div>
+              <span>户外花园</span>
+            </div>
+            <div class="theme-card" data-theme="galaxy">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#0b0c10,#1f2833,#45a29e)"></div>
+              <span>星际漫游</span>
+            </div>
+            <div class="theme-card" data-theme="theater">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#2c003e,#512b58,#8e3b46)"></div>
+              <span>古典剧院</span>
+            </div>
+            <div class="theme-card" data-theme="ocean">
+              <div class="theme-preview" style="background:linear-gradient(135deg,#023e8a,#0077b6,#0096c7)"></div>
+              <span>深海秘境</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">入口海报</label>
+          <div class="input-row">
+            <input type="text" id="poster-url" class="form-input" placeholder="输入海报图片 URL…">
+            <button class="btn-sm" id="btn-poster-preview">预览</button>
+          </div>
+          <div id="poster-preview-box" class="preview-box hidden"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">背景音乐</label>
+          <div class="input-row">
+            <input type="text" id="bgm-url" class="form-input" placeholder="输入音乐文件 URL…">
+            <button class="btn-sm" id="btn-bgm-play">▶ 试听</button>
+          </div>
+          <div class="form-row" style="margin-top:8px">
+            <label class="form-sublabel">音量</label>
+            <input type="range" id="bgm-volume" min="0" max="100" value="50" class="slider">
+            <span id="bgm-volume-val" class="slider-val">50%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 席位面板 -->
+      <section class="panel" id="panel-seats">
+        <h2 class="panel-title">席位设置</h2>
+        <p class="panel-desc">生成观众头像、座位区和嘉宾区</p>
+        <div class="form-group">
+          <label class="form-label">头像风格</label>
+          <div class="avatar-style-grid">
+            <div class="avatar-style-card selected" data-style="pixel">
+              <div class="avatar-sample pixel">🧑‍💻</div>
+              <span>像素风</span>
+            </div>
+            <div class="avatar-style-card" data-style="cartoon">
+              <div class="avatar-sample cartoon">🧑‍🎨</div>
+              <span>卡通风</span>
+            </div>
+            <div class="avatar-style-card" data-style="3d">
+              <div class="avatar-sample three-d">🧑‍🚀</div>
+              <span>3D 风</span>
+            </div>
+            <div class="avatar-style-card" data-style="abstract">
+              <div class="avatar-sample abstract">🧑‍🔬</div>
+              <span>抽象风</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">座位布局</label>
+          <div class="layout-grid">
+            <div class="layout-card selected" data-layout="theater">
+              <div class="layout-icon">🏛️</div>
+              <span>剧场式</span>
+            </div>
+            <div class="layout-card" data-layout="roundtable">
+              <div class="layout-icon">⭕</div>
+              <span>圆桌式</span>
+            </div>
+            <div class="layout-card" data-layout="ushape">
+              <div class="layout-icon">🔀</div>
+              <span>U 形</span>
+            </div>
+            <div class="layout-card" data-layout="classroom">
+              <div class="layout-icon">📐</div>
+              <span>教室式</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group half">
+            <label class="form-label">观众席容量</label>
+            <input type="number" id="seat-count" class="form-input" value="50" min="1" max="500">
+          </div>
+          <div class="form-group half">
+            <label class="form-label">每排座位数</label>
+            <input type="number" id="seats-per-row" class="form-input" value="10" min="1" max="30">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">嘉宾区</label>
+          <div class="form-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="vip-enabled" checked>
+              <span class="toggle-switch"></span>
+              <span>启用嘉宾区</span>
+            </label>
+          </div>
+          <div class="form-row" id="vip-settings">
+            <div class="form-group half">
+              <label class="form-sublabel">嘉宾席数量</label>
+              <input type="number" id="vip-count" class="form-input" value="5" min="1" max="20">
+            </div>
+            <div class="form-group half">
+              <label class="form-sublabel">嘉宾区标签</label>
+              <input type="text" id="vip-label" class="form-input" value="嘉宾席">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 议程面板 -->
+      <section class="panel" id="panel-agenda">
+        <h2 class="panel-title">议程设置</h2>
+        <p class="panel-desc">绑定网页直播、倒计时和环节提示</p>
+        <div class="form-group">
+          <label class="form-label">直播源</label>
+          <div class="input-row">
+            <input type="text" id="live-url" class="form-input" placeholder="输入直播页面 URL 或嵌入代码…">
+            <button class="btn-sm" id="btn-live-bind">绑定</button>
+          </div>
+          <div id="live-status" class="status-badge hidden">已绑定</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">倒计时</label>
+          <div class="form-row">
+            <div class="form-group half">
+              <label class="form-sublabel">开始时间</label>
+              <input type="datetime-local" id="countdown-start" class="form-input">
+            </div>
+            <div class="form-group half">
+              <label class="form-sublabel">倒计时标题</label>
+              <input type="text" id="countdown-title" class="form-input" placeholder="活动开始">
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="countdown-visible" checked>
+              <span class="toggle-switch"></span>
+              <span>在会场中显示倒计时</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">议程环节</label>
+          <div id="agenda-items" class="agenda-list">
+            <div class="agenda-item">
+              <div class="agenda-time">
+                <input type="text" class="form-input agenda-input" placeholder="14:00" value="14:00">
+              </div>
+              <div class="agenda-name">
+                <input type="text" class="form-input agenda-input" placeholder="环节名称" value="开场致辞">
+              </div>
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+            <div class="agenda-item">
+              <div class="agenda-time">
+                <input type="text" class="form-input agenda-input" placeholder="14:30" value="14:30">
+              </div>
+              <div class="agenda-name">
+                <input type="text" class="form-input agenda-input" placeholder="环节名称" value="主题演讲">
+              </div>
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+          </div>
+          <button id="btn-add-agenda" class="btn-add">+ 添加环节</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">环节提示</label>
+          <div class="form-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="session-notify" checked>
+              <span class="toggle-switch"></span>
+              <span>自动提示下一个环节</span>
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="form-sublabel">提前提示（分钟）</label>
+            <input type="number" id="notify-advance" class="form-input sm" value="5" min="1" max="30">
+          </div>
+        </div>
+      </section>
+
+      <!-- 互动面板 -->
+      <section class="panel" id="panel-interact">
+        <h2 class="panel-title">互动设置</h2>
+        <p class="panel-desc">发起鼓掌、举手、投票和弹幕墙</p>
+        <div class="interact-grid">
+          <div class="interact-card">
+            <div class="interact-header">
+              <span class="interact-icon">👏</span>
+              <span class="interact-name">鼓掌</span>
+            </div>
+            <div class="interact-body">
+              <button class="btn-action" id="btn-applause">发起鼓掌</button>
+              <div class="form-row" style="margin-top:8px">
+                <label class="form-sublabel">持续时间</label>
+                <select id="applause-duration" class="form-select">
+                  <option value="3">3 秒</option>
+                  <option value="5" selected>5 秒</option>
+                  <option value="10">10 秒</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="interact-card">
+            <div class="interact-header">
+              <span class="interact-icon">✋</span>
+              <span class="interact-name">举手</span>
+            </div>
+            <div class="interact-body">
+              <label class="toggle-label">
+                <input type="checkbox" id="handraise-enabled" checked>
+                <span class="toggle-switch"></span>
+                <span>允许观众举手</span>
+              </label>
+              <div id="handraise-queue" class="queue-list hidden">
+                <p class="queue-title">举手队列</p>
+                <div class="queue-items"></div>
+              </div>
+            </div>
+          </div>
+          <div class="interact-card">
+            <div class="interact-header">
+              <span class="interact-icon">🗳️</span>
+              <span class="interact-name">投票</span>
+            </div>
+            <div class="interact-body">
+              <input type="text" id="vote-question" class="form-input" placeholder="投票问题">
+              <div id="vote-options" class="vote-options">
+                <input type="text" class="form-input vote-option" placeholder="选项 1">
+                <input type="text" class="form-input vote-option" placeholder="选项 2">
+              </div>
+              <button id="btn-add-vote-option" class="btn-add-sm">+ 添加选项</button>
+              <button class="btn-action" id="btn-start-vote" style="margin-top:8px">发起投票</button>
+            </div>
+          </div>
+          <div class="interact-card">
+            <div class="interact-header">
+              <span class="interact-icon">💬</span>
+              <span class="interact-name">弹幕墙</span>
+            </div>
+            <div class="interact-body">
+              <label class="toggle-label">
+                <input type="checkbox" id="danmaku-enabled" checked>
+                <span class="toggle-switch"></span>
+                <span>开启弹幕墙</span>
+              </label>
+              <div class="form-row" style="margin-top:8px">
+                <label class="form-sublabel">弹幕速度</label>
+                <select id="danmaku-speed" class="form-select">
+                  <option value="slow">慢速</option>
+                  <option value="normal" selected>中速</option>
+                  <option value="fast">快速</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label class="form-sublabel">弹幕透明度</label>
+                <input type="range" id="danmaku-opacity" min="20" max="100" value="80" class="slider">
+                <span id="danmaku-opacity-val" class="slider-val">80%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 展台面板 -->
+      <section class="panel" id="panel-booth">
+        <h2 class="panel-title">展台设置</h2>
+        <p class="panel-desc">把链接卡片摆成虚拟摊位</p>
+        <div class="form-group">
+          <label class="form-label">展台布局</label>
+          <div class="layout-grid">
+            <div class="layout-card selected" data-booth-layout="grid">
+              <div class="layout-icon">🔲</div>
+              <span>网格</span>
+            </div>
+            <div class="layout-card" data-booth-layout="carousel">
+              <div class="layout-icon">🎠</div>
+              <span>旋转</span>
+            </div>
+            <div class="layout-card" data-booth-layout="street">
+              <div class="layout-icon">🏘️</div>
+              <span>街道</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">展台卡片</label>
+          <div id="booth-cards" class="booth-list">
+            <div class="booth-card-item">
+              <div class="booth-card-color" style="background:#6c5ce7"></div>
+              <input type="text" class="form-input booth-title" placeholder="展台名称" value="产品展示">
+              <input type="text" class="form-input booth-url" placeholder="链接 URL" value="">
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+            <div class="booth-card-item">
+              <div class="booth-card-color" style="background:#00cec9"></div>
+              <input type="text" class="form-input booth-title" placeholder="展台名称" value="技术白皮书">
+              <input type="text" class="form-input booth-url" placeholder="链接 URL" value="">
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+          </div>
+          <button id="btn-add-booth" class="btn-add">+ 添加展台</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">展台风格</label>
+          <div class="form-row">
+            <label class="form-sublabel">卡片圆角</label>
+            <input type="range" id="booth-radius" min="0" max="24" value="12" class="slider">
+            <span id="booth-radius-val" class="slider-val">12px</span>
+          </div>
+          <div class="form-row">
+            <label class="form-sublabel">卡片间距</label>
+            <input type="range" id="booth-gap" min="4" max="32" value="16" class="slider">
+            <span id="booth-gap-val" class="slider-val">16px</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 导览面板 -->
+      <section class="panel" id="panel-guide">
+        <h2 class="panel-title">导览设置</h2>
+        <p class="panel-desc">设置热点跳转和主持口播</p>
+        <div class="form-group">
+          <label class="form-label">热点跳转</label>
+          <div id="hotspot-list" class="hotspot-list">
+            <div class="hotspot-item">
+              <span class="hotspot-marker">📍</span>
+              <input type="text" class="form-input hotspot-name" placeholder="热点名称" value="主舞台">
+              <input type="text" class="form-input hotspot-url" placeholder="跳转 URL">
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+            <div class="hotspot-item">
+              <span class="hotspot-marker">📍</span>
+              <input type="text" class="form-input hotspot-name" placeholder="热点名称" value="休息区">
+              <input type="text" class="form-input hotspot-url" placeholder="跳转 URL">
+              <button class="btn-icon btn-remove" title="删除">✕</button>
+            </div>
+          </div>
+          <button id="btn-add-hotspot" class="btn-add">+ 添加热点</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">主持口播</label>
+          <div id="narration-list" class="narration-list">
+            <div class="narration-item">
+              <div class="narration-header">
+                <span class="narration-time">
+                  <input type="text" class="form-input sm" placeholder="14:00" value="14:00">
+                </span>
+                <button class="btn-icon btn-play-narration" title="播放">▶</button>
+              </div>
+              <textarea class="form-textarea" placeholder="口播内容">欢迎各位来到今天的元宇宙会场，让我们开始精彩的活动！</textarea>
+            </div>
+          </div>
+          <button id="btn-add-narration" class="btn-add">+ 添加口播</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">口播语音</label>
+          <div class="form-row">
+            <select id="tts-voice" class="form-select">
+              <option value="zh-CN-XiaoxiaoNeural">晓晓（女声）</option>
+              <option value="zh-CN-YunxiNeural">云希（男声）</option>
+              <option value="zh-CN-YunjianNeural">云健（男声）</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-sublabel">语速</label>
+            <input type="range" id="tts-rate" min="50" max="200" value="100" class="slider">
+            <span id="tts-rate-val" class="slider-val">1.0x</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 复盘面板 -->
+      <section class="panel" id="panel-review">
+        <h2 class="panel-title">复盘数据</h2>
+        <p class="panel-desc">导出参与人数、停留时长、互动记录和问题列表</p>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-participants">0</div>
+            <div class="stat-label">参与人数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-duration">0m</div>
+            <div class="stat-label">平均停留</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-interactions">0</div>
+            <div class="stat-label">互动次数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-questions">0</div>
+            <div class="stat-label">提问数量</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">互动记录</label>
+          <div id="interaction-log" class="log-list">
+            <p class="log-empty">暂无互动记录，启动会场后自动记录</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">问题列表</label>
+          <div id="question-list" class="log-list">
+            <p class="log-empty">暂无提问记录</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">数据导出</label>
+          <div class="export-row">
+            <button class="btn-export" id="btn-export-csv">📄 导出 CSV</button>
+            <button class="btn-export" id="btn-export-json">📦 导出 JSON</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
