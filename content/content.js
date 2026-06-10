@@ -77,13 +77,50 @@
     `;
   }
 
+  const DEFAULT_STATE = {
+    activated: false,
+    space: { theme: 'conference', posterUrl: '', bgmUrl: '', bgmVolume: 50 },
+    seats: { avatarStyle: 'pixel', layout: 'theater', count: 50, perRow: 10, vipEnabled: true, vipCount: 5, vipLabel: '嘉宾席' },
+    agenda: {
+      liveUrl: '', liveBound: false, countdownStart: '', countdownTitle: '活动开始',
+      countdownVisible: true, items: [], notifyEnabled: true, notifyAdvance: 5
+    },
+    interact: { applauseDuration: '5', handraiseEnabled: true, danmakuEnabled: true, danmakuSpeed: 'normal', danmakuOpacity: 80 },
+    booth: { layout: 'grid', cards: [], radius: 12, gap: 16 },
+    guide: { hotspots: [], narrations: [], ttsVoice: 'zh-CN-XiaoxiaoNeural', ttsRate: 100 },
+    review: { participants: 0, avgDuration: 0, interactions: 0, questions: 0, logs: [], questionList: [] }
+  };
+
+  function deepMerge(target, source) {
+    if (!source || typeof source !== 'object') return target;
+    const result = {};
+    const allKeys = new Set([...Object.keys(target || {}), ...Object.keys(source || {})]);
+    for (const key of allKeys) {
+      const tVal = target ? target[key] : undefined;
+      const sVal = source ? source[key] : undefined;
+      if (sVal === undefined) {
+        result[key] = tVal;
+      } else if (typeof sVal === 'object' && sVal !== null && !Array.isArray(sVal)) {
+        result[key] = deepMerge(tVal || {}, sVal);
+      } else {
+        result[key] = sVal;
+      }
+    }
+    return result;
+  }
+
   function activate(s) {
-    state = s;
+    state = deepMerge(DEFAULT_STATE, s);
     isActive = true;
     joinTime = Date.now();
-    injectDynamicStyle(state.space.theme);
-    render();
-    startAnalyticsPing();
+    try {
+      injectDynamicStyle(state.space.theme);
+      render();
+      startAnalyticsPing();
+      syncAnalyticsToStorage();
+    } catch (e) {
+      console.error('[MetaVenue] activate error:', e);
+    }
   }
 
   function deactivate() {
@@ -190,20 +227,128 @@
 
   function renderSeating() {
     const icons = AVATAR_ICONS[state.seats.avatarStyle] || AVATAR_ICONS.pixel;
-    const total = Math.min(state.seats.count, 50);
-    const perRow = state.seats.perRow;
-    const rows = Math.ceil(total / perRow);
-    const names = ['观众', '参会者', '来宾', '会员', '用户'];
+    const total = Math.min(state.seats.count || 50, 500);
+    const perRow = state.seats.perRow || 10;
+    const names = ['观众', '参会者', '来宾', '会员', '用户', '访客', '同学', '同仁'];
+    const layout = state.seats.layout || 'theater';
+
+    function makeSeat(idx, extraClass, extraStyle) {
+      const icon = icons[idx % icons.length];
+      const name = names[idx % names.length] + (idx + 1);
+      const cls = 'mv-seat ' + (extraClass || '');
+      const style = extraStyle ? ' style="' + extraStyle + '"' : '';
+      return `<div class="${cls}"${style}><span class="mv-avatar mv-audience">${icon}</span><span class="mv-name">${name}</span></div>`;
+    }
+
     let html = '';
-    for (let r = 0; r < rows; r++) {
-      html += '<div class="mv-seat-row">';
-      for (let c = 0; c < perRow && (r * perRow + c) < total; c++) {
-        const idx = r * perRow + c;
-        const icon = icons[idx % icons.length];
-        const name = names[idx % names.length] + (idx + 1);
-        html += `<div class="mv-seat"><span class="mv-avatar mv-audience">${icon}</span><span class="mv-name">${name}</span></div>`;
+    switch (layout) {
+      case 'theater': {
+        const rows = Math.ceil(total / perRow);
+        html += '<div class="mv-seating-theater">';
+        for (let r = 0; r < rows; r++) {
+          const rowCount = Math.min(perRow, total - r * perRow);
+          const offset = (perRow - rowCount) / 2;
+          html += `<div class="mv-seat-row" style="padding-left:${offset * 34}px">`;
+          for (let c = 0; c < rowCount; c++) {
+            const idx = r * perRow + c;
+            html += makeSeat(idx);
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+        break;
       }
-      html += '</div>';
+      case 'roundtable': {
+        const radius = 120 + Math.min(total, 80) * 2.5;
+        const seatCount = Math.min(total, 60);
+        html += `<div class="mv-seating-round" style="width:${radius * 2}px;height:${radius * 2}px">`;
+        html += `<div class="mv-round-center">圆桌会场</div>`;
+        for (let i = 0; i < seatCount; i++) {
+          const angle = (i / seatCount) * 2 * Math.PI - Math.PI / 2;
+          const x = radius + Math.cos(angle) * (radius - 30) - 25;
+          const y = radius + Math.sin(angle) * (radius - 30) - 25;
+          const rot = (angle * 180 / Math.PI) + 90;
+          html += makeSeat(i, 'mv-round-seat',
+            `left:${x}px;top:${y}px;transform:rotate(${rot}deg)`
+          );
+        }
+        html += '</div>';
+        if (total > 60) {
+          html += `<div class="mv-seating-more">另有 ${total - 60} 位观众在其他区域...</div>`;
+        }
+        break;
+      }
+      case 'ushape': {
+        const seatCount = Math.min(total, 80);
+        const sideCount = Math.floor(seatCount / 4);
+        const bottomCount = seatCount - sideCount * 2;
+        const seatW = 44;
+        const seatH = 48;
+        const gap = 4;
+        const width = bottomCount * (seatW + gap) + 2 * sideCount * (seatW + gap);
+        const height = sideCount * (seatH + gap) + 60;
+        html += `<div class="mv-seating-ushape" style="width:${width}px;height:${height}px">`;
+        let idx = 0;
+        for (let i = 0; i < sideCount && idx < seatCount; i++, idx++) {
+          const y = i * (seatH + gap);
+          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-left',
+            `left:0;top:${y}px;transform:rotate(20deg)`
+          );
+        }
+        for (let i = 0; i < bottomCount && idx < seatCount; i++, idx++) {
+          const x = sideCount * (seatW + gap) + i * (seatW + gap);
+          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-bottom',
+            `left:${x}px;bottom:0`
+          );
+        }
+        for (let i = sideCount - 1; i >= 0 && idx < seatCount; i--, idx++) {
+          const y = i * (seatH + gap);
+          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-right',
+            `right:0;top:${y}px;transform:rotate(-20deg)`
+          );
+        }
+        html += '<div class="mv-ushape-stage">🎤 舞台</div>';
+        html += '</div>';
+        if (total > 80) {
+          html += `<div class="mv-seating-more">另有 ${total - 80} 位观众在其他区域...</div>`;
+        }
+        break;
+      }
+      case 'classroom': {
+        const rows = Math.ceil(total / perRow);
+        const tableCount = Math.ceil(perRow / 3);
+        html += '<div class="mv-seating-classroom">';
+        for (let r = 0; r < rows; r++) {
+          html += '<div class="mv-classroom-row">';
+          for (let t = 0; t < tableCount; t++) {
+            const startIdx = r * perRow + t * 3;
+            const endIdx = Math.min(startIdx + 3, total);
+            const tableSeats = [];
+            for (let i = startIdx; i < endIdx; i++) {
+              tableSeats.push(makeSeat(i, 'mv-classroom-seat'));
+            }
+            if (tableSeats.length > 0) {
+              html += `<div class="mv-classroom-desk">${tableSeats.join('')}</div>`;
+            }
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+        break;
+      }
+      default: {
+        const rows = Math.ceil(total / perRow);
+        html += '<div class="mv-seating-theater">';
+        for (let r = 0; r < rows; r++) {
+          html += '<div class="mv-seat-row">';
+          for (let c = 0; c < perRow && (r * perRow + c) < total; c++) {
+            const idx = r * perRow + c;
+            html += makeSeat(idx);
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      }
     }
     return html;
   }
@@ -256,15 +401,26 @@
     const handBtn = document.getElementById('mv-hand-btn');
     if (handBtn) {
       handBtn.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'handraise', data: { name: '观众' + Math.floor(Math.random() * 50 + 1) } });
-        showToast('✋ 已举手');
+        try {
+          const name = '观众' + Math.floor(Math.random() * 50 + 1);
+          chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'handraise', data: { name } })
+            .catch(() => {});
+          addLog('handraise', name + ' 举手');
+          showToast('✋ 已举手');
+        } catch (e) {
+          console.warn('[MetaVenue] handraise error:', e);
+        }
       });
     }
 
     const applauseBtn = document.getElementById('mv-applause-btn');
     if (applauseBtn) {
       applauseBtn.addEventListener('click', () => {
-        triggerApplause(3);
+        try {
+          triggerApplause(3);
+        } catch (e) {
+          console.warn('[MetaVenue] applause error:', e);
+        }
       });
     }
 
@@ -286,13 +442,19 @@
     const questionSubmit = document.getElementById('mv-question-submit');
     if (questionSubmit) {
       questionSubmit.addEventListener('click', () => {
-        const input = document.getElementById('mv-question-input');
-        if (input && input.value.trim()) {
-          chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'question', data: { content: input.value.trim() } });
-          analytics.questions++;
-          showToast('✅ 问题已提交');
-          document.getElementById('mv-question-modal').classList.add('hidden');
-          input.value = '';
+        try {
+          const input = document.getElementById('mv-question-input');
+          if (input && input.value.trim()) {
+            const content = input.value.trim();
+            chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'question', data: { content } })
+              .catch(() => {});
+            addLog('question', content);
+            showToast('✅ 问题已提交');
+            document.getElementById('mv-question-modal').classList.add('hidden');
+            input.value = '';
+          }
+        } catch (e) {
+          console.warn('[MetaVenue] question submit error:', e);
         }
       });
     }
@@ -439,12 +601,46 @@
     });
   }
 
+  function syncAnalyticsToStorage() {
+    try {
+      chrome.storage.local.set({ metavenue_analytics: analytics });
+    } catch (e) {
+      console.warn('[MetaVenue] sync analytics failed:', e);
+    }
+  }
+
+  function addLog(type, content) {
+    const typeLabels = { applause: '鼓掌', handraise: '举手', vote: '投票', question: '提问', enter: '入场', danmaku: '弹幕' };
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ':' +
+      now.getMinutes().toString().padStart(2, '0') + ':' +
+      now.getSeconds().toString().padStart(2, '0');
+    const entry = { type, typeLabel: typeLabels[type] || type, content, time: timeStr };
+    analytics.logs.push(entry);
+    analytics.interactions++;
+    if (type === 'question') {
+      analytics.questions++;
+      analytics.questionList.push(entry);
+    }
+    if (analytics.logs.length > 500) {
+      analytics.logs = analytics.logs.slice(-300);
+    }
+    syncAnalyticsToStorage();
+  }
+
   function startAnalyticsPing() {
     setInterval(() => {
-      const elapsed = Math.floor((Date.now() - joinTime) / 60000);
-      analytics.avgDuration = Math.max(analytics.avgDuration, elapsed);
-      analytics.interactions += Math.random() > 0.7 ? 1 : 0;
-      chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'analytics', data: analytics });
+      if (!isActive) return;
+      try {
+        const elapsed = Math.floor((Date.now() - joinTime) / 60000);
+        analytics.avgDuration = Math.max(analytics.avgDuration, elapsed);
+        analytics.participants = Math.max(analytics.participants, Math.floor(Math.random() * 30) + 20);
+        syncAnalyticsToStorage();
+        chrome.runtime.sendMessage({ source: 'metavenue-content', action: 'analytics', data: analytics })
+          .catch(() => {});
+      } catch (e) {
+        console.warn('[MetaVenue] analytics ping error:', e);
+      }
     }, 10000);
   }
 
@@ -464,64 +660,68 @@
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.source !== 'metavenue-popup') return;
 
-    switch (msg.action) {
-      case 'activate':
-        activate(msg.data);
-        break;
-      case 'deactivate':
-        deactivate();
-        break;
-      case 'updateTheme':
-        if (state) {
-          state.space.theme = msg.data.theme;
-          injectDynamicStyle(msg.data.theme);
-        }
-        break;
-      case 'updateSeats':
-        if (state) {
-          state.seats = { ...state.seats, ...msg.data };
-          render();
-        }
-        break;
-      case 'bindLive':
-        if (state) {
-          state.agenda.liveUrl = msg.data.url;
-          state.agenda.liveBound = true;
-          render();
-        }
-        break;
-      case 'applause':
-        triggerApplause(msg.data.duration || 5);
-        analytics.interactions++;
-        break;
-      case 'startVote':
-        showVote(msg.data);
-        analytics.interactions++;
-        break;
-      case 'toggleHandraise':
-        if (state) state.interact.handraiseEnabled = msg.data.enabled;
-        break;
-      case 'updateDanmaku':
-        if (state) {
-          state.interact.danmakuEnabled = msg.data.enabled;
-          state.interact.danmakuSpeed = msg.data.speed;
-          state.interact.danmakuOpacity = msg.data.opacity;
-          if (danmakuInterval) clearInterval(danmakuInterval);
-          if (msg.data.enabled) startDanmaku();
-        }
-        break;
-      case 'updateBooth':
-        if (state) {
-          state.booth = { ...state.booth, ...msg.data };
-          render();
-        }
-        break;
-      case 'narrate':
-        handleNarrate(msg.data);
-        break;
-      case 'playBgm':
-        playBgm(msg.data.url, msg.data.volume || 0.5);
-        break;
+    try {
+      switch (msg.action) {
+        case 'activate':
+          activate(msg.data);
+          break;
+        case 'deactivate':
+          deactivate();
+          break;
+        case 'updateTheme':
+          if (state) {
+            state.space.theme = msg.data.theme;
+            injectDynamicStyle(msg.data.theme);
+          }
+          break;
+        case 'updateSeats':
+          if (state) {
+            state.seats = { ...state.seats, ...msg.data };
+            render();
+          }
+          break;
+        case 'bindLive':
+          if (state) {
+            state.agenda.liveUrl = msg.data.url;
+            state.agenda.liveBound = true;
+            render();
+          }
+          break;
+        case 'applause':
+          triggerApplause(msg.data.duration || 5);
+          addLog('applause', '主持人发起鼓掌');
+          break;
+        case 'startVote':
+          showVote(msg.data);
+          addLog('vote', '投票: ' + (msg.data.question || ''));
+          break;
+        case 'toggleHandraise':
+          if (state) state.interact.handraiseEnabled = msg.data.enabled;
+          break;
+        case 'updateDanmaku':
+          if (state) {
+            state.interact.danmakuEnabled = msg.data.enabled;
+            state.interact.danmakuSpeed = msg.data.speed;
+            state.interact.danmakuOpacity = msg.data.opacity;
+            if (danmakuInterval) clearInterval(danmakuInterval);
+            if (msg.data.enabled) startDanmaku();
+          }
+          break;
+        case 'updateBooth':
+          if (state) {
+            state.booth = deepMerge(state.booth, msg.data);
+            render();
+          }
+          break;
+        case 'narrate':
+          handleNarrate(msg.data);
+          break;
+        case 'playBgm':
+          playBgm(msg.data.url, msg.data.volume || 0.5);
+          break;
+      }
+    } catch (e) {
+      console.error('[MetaVenue] message handler error:', e, msg);
     }
   });
 })();

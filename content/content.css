@@ -210,8 +210,130 @@
 .mv-seating {
   padding: 10px 20px 16px;
   overflow-y: auto;
-  max-height: 220px;
+  max-height: 260px;
   pointer-events: auto;
+}
+
+.mv-seating-theater {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mv-seating-theater .mv-seat-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: 4px;
+  margin: 0;
+}
+
+.mv-seating-round {
+  position: relative;
+  margin: 10px auto;
+}
+
+.mv-seating-round .mv-round-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid var(--mv-accent, #4fc3f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mv-accent, #4fc3f7);
+  box-shadow: 0 0 20px var(--mv-glow, rgba(79,195,247,0.3));
+}
+
+.mv-seating-round .mv-round-seat {
+  position: absolute;
+  width: 50px;
+  padding: 4px;
+}
+
+.mv-seating-round .mv-round-seat .mv-name {
+  display: none;
+}
+
+.mv-seating-round .mv-round-seat .mv-avatar {
+  font-size: 20px;
+}
+
+.mv-seating-ushape {
+  position: relative;
+  margin: 10px auto;
+}
+
+.mv-seating-ushape .mv-ushape-seat {
+  position: absolute;
+  width: 50px;
+  padding: 4px;
+}
+
+.mv-seating-ushape .mv-ushape-seat .mv-name {
+  display: none;
+}
+
+.mv-seating-ushape .mv-ushape-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 24px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid var(--mv-accent, #4fc3f7);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mv-accent, #4fc3f7);
+  white-space: nowrap;
+}
+
+.mv-seating-classroom {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.mv-classroom-row {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.mv-classroom-desk {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.mv-classroom-seat {
+  flex-direction: column;
+  padding: 2px 4px;
+  background: transparent;
+}
+
+.mv-classroom-seat .mv-name {
+  display: none;
+}
+
+.mv-seating-more {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 8px;
 }
 
 .mv-seat-row {
@@ -230,6 +352,7 @@
   border-radius: 6px;
   background: rgba(255,255,255,0.03);
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .mv-seat:hover {
