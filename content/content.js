@@ -5,6 +5,7 @@
   let audioEl = null;
   let danmakuInterval = null;
   let countdownInterval = null;
+  let narrationQueueRunning = false;
   let analytics = {
     participants: Math.floor(Math.random() * 20) + 10,
     avgDuration: Math.floor(Math.random() * 15) + 5,
@@ -58,6 +59,10 @@
       clearInterval(countdownInterval);
       countdownInterval = null;
     }
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
+    narrationQueueRunning = false;
   }
 
   function injectDynamicStyle(theme) {
@@ -87,7 +92,7 @@
     },
     interact: { applauseDuration: '5', handraiseEnabled: true, danmakuEnabled: true, danmakuSpeed: 'normal', danmakuOpacity: 80 },
     booth: { layout: 'grid', cards: [], radius: 12, gap: 16 },
-    guide: { hotspots: [], narrations: [], ttsVoice: 'zh-CN-XiaoxiaoNeural', ttsRate: 100 },
+    guide: { hotspots: [], narrations: [], narrationAutoplay: true, ttsVoice: 'zh-CN-XiaoxiaoNeural', ttsRate: 100 },
     review: { participants: 0, avgDuration: 0, interactions: 0, questions: 0, logs: [], questionList: [] }
   };
 
@@ -118,6 +123,19 @@
       render();
       startAnalyticsPing();
       syncAnalyticsToStorage();
+
+      if (state.guide.narrationAutoplay && state.guide.narrations && state.guide.narrations.length > 0) {
+        const valid = state.guide.narrations.filter(n => n && n.text);
+        if (valid.length > 0) {
+          setTimeout(() => {
+            handleNarrateAll({
+              narrations: valid,
+              voice: state.guide.ttsVoice,
+              rate: state.guide.ttsRate / 100
+            });
+          }, 1500);
+        }
+      }
     } catch (e) {
       console.error('[MetaVenue] activate error:', e);
     }
@@ -180,6 +198,8 @@
           ${renderHotspots()}
         </div>
 
+        <div class="mv-hotspot-popups" id="mv-hotspot-popups"></div>
+
         <div class="mv-danmaku-layer" id="mv-danmaku-layer"></div>
 
         <div class="mv-agenda-bar" id="mv-agenda-bar">
@@ -216,8 +236,9 @@
     if (!state.seats.vipEnabled) return '';
     const icons = AVATAR_ICONS[state.seats.avatarStyle] || AVATAR_ICONS.pixel;
     const vips = [];
-    const vipNames = ['主讲嘉宾', '特邀嘉宾', '行业专家', '知名学者', '技术顾问', '产品总监'];
-    for (let i = 0; i < state.seats.vipCount; i++) {
+    const vipNames = ['主讲嘉宾', '特邀嘉宾', '行业专家', '知名学者', '技术顾问', '产品总监', 'CEO', '设计总监', '运营总监', '市场负责人', '首席技术官', '首席设计师'];
+    const vipCount = Math.min(state.seats.vipCount || 0, 24);
+    for (let i = 0; i < vipCount; i++) {
       const icon = icons[i % icons.length];
       const name = vipNames[i % vipNames.length];
       vips.push(`<div class="mv-vip-seat"><span class="mv-avatar">${icon}</span><span class="mv-name">${name}</span></div>`);
@@ -227,12 +248,13 @@
 
   function renderSeating() {
     const icons = AVATAR_ICONS[state.seats.avatarStyle] || AVATAR_ICONS.pixel;
-    const total = Math.min(state.seats.count || 50, 500);
+    const total = Math.min(state.seats.count || 50, 1000);
     const perRow = state.seats.perRow || 10;
     const names = ['观众', '参会者', '来宾', '会员', '用户', '访客', '同学', '同仁'];
     const layout = state.seats.layout || 'theater';
 
     function makeSeat(idx, extraClass, extraStyle) {
+      if (idx >= total) return '';
       const icon = icons[idx % icons.length];
       const name = names[idx % names.length] + (idx + 1);
       const cls = 'mv-seat ' + (extraClass || '');
@@ -259,59 +281,94 @@
         break;
       }
       case 'roundtable': {
-        const radius = 120 + Math.min(total, 80) * 2.5;
-        const seatCount = Math.min(total, 60);
-        html += `<div class="mv-seating-round" style="width:${radius * 2}px;height:${radius * 2}px">`;
-        html += `<div class="mv-round-center">圆桌会场</div>`;
-        for (let i = 0; i < seatCount; i++) {
-          const angle = (i / seatCount) * 2 * Math.PI - Math.PI / 2;
-          const x = radius + Math.cos(angle) * (radius - 30) - 25;
-          const y = radius + Math.sin(angle) * (radius - 30) - 25;
-          const rot = (angle * 180 / Math.PI) + 90;
-          html += makeSeat(i, 'mv-round-seat',
-            `left:${x}px;top:${y}px;transform:rotate(${rot}deg)`
-          );
+        const seatsPerRing = [30, 45, 60, 80, 100];
+        const ringBaseRadius = [100, 170, 245, 325, 410];
+        const ringGap = 75;
+        const ringSizes = [];
+        let remaining = total;
+        let ringIdx = 0;
+        while (remaining > 0) {
+          const capacity = seatsPerRing[Math.min(ringIdx, seatsPerRing.length - 1)];
+          const take = Math.min(remaining, capacity);
+          ringSizes.push(take);
+          remaining -= take;
+          ringIdx++;
         }
+        const rings = ringSizes.length;
+        const outerRadius = ringBaseRadius[Math.min(rings - 1, ringBaseRadius.length - 1)] + (rings > ringBaseRadius.length ? (rings - ringBaseRadius.length) * ringGap : 0);
+        const containerSize = (outerRadius + 60) * 2;
+        html += `<div class="mv-seating-round" style="width:${containerSize}px;height:${containerSize}px">`;
+        html += `<div class="mv-round-center">圆桌会场 · 共 ${total} 席</div>`;
+        let seatIdx = 0;
+        ringSizes.forEach((count, ri) => {
+          const ringRadius = ringBaseRadius[Math.min(ri, ringBaseRadius.length - 1)] + (ri > ringBaseRadius.length - 1 ? (ri - (ringBaseRadius.length - 1)) * ringGap : 0);
+          const ringColor = ['#4fc3f7', '#ba68c8', '#81c784', '#ffb74d', '#f06292', '#4dd0e1'][ri % 6];
+          for (let i = 0; i < count && seatIdx < total; i++, seatIdx++) {
+            const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
+            const r = ringRadius;
+            const cx = containerSize / 2;
+            const cy = containerSize / 2;
+            const x = cx + Math.cos(angle) * r - 24;
+            const y = cy + Math.sin(angle) * r - 24;
+            const rot = (angle * 180 / Math.PI) + 90;
+            html += makeSeat(seatIdx, 'mv-round-seat',
+              `left:${x}px;top:${y}px;transform:rotate(${rot}deg);--mv-ring:${ringColor}`
+            );
+          }
+        });
         html += '</div>';
-        if (total > 60) {
-          html += `<div class="mv-seating-more">另有 ${total - 60} 位观众在其他区域...</div>`;
-        }
         break;
       }
       case 'ushape': {
-        const seatCount = Math.min(total, 80);
-        const sideCount = Math.floor(seatCount / 4);
-        const bottomCount = seatCount - sideCount * 2;
         const seatW = 44;
         const seatH = 48;
         const gap = 4;
-        const width = bottomCount * (seatW + gap) + 2 * sideCount * (seatW + gap);
-        const height = sideCount * (seatH + gap) + 60;
-        html += `<div class="mv-seating-ushape" style="width:${width}px;height:${height}px">`;
-        let idx = 0;
-        for (let i = 0; i < sideCount && idx < seatCount; i++, idx++) {
-          const y = i * (seatH + gap);
-          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-left',
-            `left:0;top:${y}px;transform:rotate(20deg)`
-          );
+        const sections = [];
+        const maxPerSide = [20, 35, 50, 65, 80];
+        const sectionSizes = [];
+        let remaining = total;
+        let si = 0;
+        while (remaining > 0) {
+          const sideCap = maxPerSide[Math.min(si, maxPerSide.length - 1)];
+          const bottomCap = Math.floor(sideCap * 1.6);
+          const totalCap = sideCap * 2 + bottomCap;
+          const take = Math.min(remaining, totalCap);
+          sectionSizes.push(take);
+          remaining -= take;
+          si++;
         }
-        for (let i = 0; i < bottomCount && idx < seatCount; i++, idx++) {
-          const x = sideCount * (seatW + gap) + i * (seatW + gap);
-          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-bottom',
-            `left:${x}px;bottom:0`
-          );
-        }
-        for (let i = sideCount - 1; i >= 0 && idx < seatCount; i--, idx++) {
-          const y = i * (seatH + gap);
-          html += makeSeat(idx, 'mv-ushape-seat mv-ushape-right',
-            `right:0;top:${y}px;transform:rotate(-20deg)`
-          );
-        }
-        html += '<div class="mv-ushape-stage">🎤 舞台</div>';
+        html += '<div class="mv-seating-ushape-zones">';
+        let startIdx = 0;
+        sectionSizes.forEach((count, zoneI) => {
+          const sideCount = Math.floor(count / 4);
+          const bottomCount = count - sideCount * 2;
+          const width = bottomCount * (seatW + gap) + 2 * (sideCount + 2) * (seatW + gap) + 60;
+          const height = sideCount * (seatH + gap) + 120;
+          html += `<div class="mv-ushape-zone" style="width:${width}px;height:${height}px">`;
+          html += `<div class="mv-ushape-stage">🎤 舞台 ${sectionSizes.length > 1 ? '#' + (zoneI + 1) : ''}</div>`;
+          let idx = startIdx;
+          for (let i = 0; i < sideCount && idx < startIdx + count; i++, idx++) {
+            const y = i * (seatH + gap) + 10;
+            html += makeSeat(idx, 'mv-ushape-seat mv-ushape-left',
+              `left:0;top:${y}px;transform:rotate(20deg)`
+            );
+          }
+          for (let i = 0; i < bottomCount && idx < startIdx + count; i++, idx++) {
+            const x = (sideCount + 1) * (seatW + gap) + i * (seatW + gap);
+            html += makeSeat(idx, 'mv-ushape-seat mv-ushape-bottom',
+              `left:${x}px;bottom:10px`
+            );
+          }
+          for (let i = sideCount - 1; i >= 0 && idx < startIdx + count; i--, idx++) {
+            const y = i * (seatH + gap) + 10;
+            html += makeSeat(idx, 'mv-ushape-seat mv-ushape-right',
+              `right:0;top:${y}px;transform:rotate(-20deg)`
+            );
+          }
+          startIdx += count;
+          html += '</div>';
+        });
         html += '</div>';
-        if (total > 80) {
-          html += `<div class="mv-seating-more">另有 ${total - 80} 位观众在其他区域...</div>`;
-        }
         break;
       }
       case 'classroom': {
@@ -355,7 +412,6 @@
 
   function renderBooths() {
     if (!state.booth.cards || state.booth.cards.length === 0) return '';
-    const layout = state.booth.layout;
     const gap = state.booth.gap;
     const radius = state.booth.radius;
     let html = `<div class="mv-booth-grid" style="gap:${gap}px">`;
@@ -364,7 +420,7 @@
       const color = card.color || colors[i % colors.length];
       html += `
         <a class="mv-booth-card" href="${card.url || '#'}" target="_blank" style="border-radius:${radius}px;border-left:4px solid ${color}">
-          <div class="mv-booth-title">${card.title || '展台'}</div>
+          <div class="mv-booth-title">${escapeHtml(card.title || '展台')}</div>
           <div class="mv-booth-link">${card.url ? '🔗 访问链接' : '暂无链接'}</div>
         </a>
       `;
@@ -375,14 +431,28 @@
 
   function renderHotspots() {
     if (!state.guide.hotspots || state.guide.hotspots.length === 0) return '';
-    let html = '<div class="mv-hotspot-list">';
-    state.guide.hotspots.forEach(h => {
-      if (h.name) {
-        html += `<a class="mv-hotspot-chip" href="${h.url || '#'}" ${h.url ? 'target="_blank"' : ''}>📍 ${h.name}</a>`;
-      }
+    let html = '';
+    state.guide.hotspots.forEach((h, idx) => {
+      const icon = h.icon || '📍';
+      const name = h.name || ('热点' + (idx + 1));
+      const x = clampPercent(h.x != null ? h.x : 50);
+      const y = clampPercent(h.y != null ? h.y : 50);
+      html += `
+        <button class="mv-hotspot-marker" data-hotspot-idx="${idx}"
+          style="left:${x}%;top:${y}%"
+          title="${escapeHtml(name)}">
+          <span class="mv-hotspot-pulse"></span>
+          <span class="mv-hotspot-icon">${icon}</span>
+          <span class="mv-hotspot-label">${escapeHtml(name)}</span>
+        </button>
+      `;
     });
-    html += '</div>';
     return html;
+  }
+
+  function clampPercent(v) {
+    const n = parseFloat(v) || 0;
+    return Math.max(0, Math.min(100, n));
   }
 
   function renderAgendaBar() {
@@ -390,7 +460,7 @@
     let html = '<div class="mv-agenda-scroll">';
     state.agenda.items.forEach(item => {
       if (item.name) {
-        html += `<span class="mv-agenda-chip"><strong>${item.time}</strong> ${item.name}</span>`;
+        html += `<span class="mv-agenda-chip"><strong>${escapeHtml(item.time || '')}</strong> ${escapeHtml(item.name)}</span>`;
       }
     });
     html += '</div>';
@@ -458,20 +528,96 @@
         }
       });
     }
+
+    document.querySelectorAll('.mv-hotspot-marker').forEach(marker => {
+      marker.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(marker.dataset.hotspotIdx || '-1', 10);
+        if (idx >= 0 && state && state.guide && state.guide.hotspots && state.guide.hotspots[idx]) {
+          openHotspotPopup(state.guide.hotspots[idx], marker);
+        }
+      });
+    });
+
+    const overlay = document.getElementById(`${NAMESPACE}-overlay`);
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (!e.target.closest('.mv-hotspot-marker') && !e.target.closest('.mv-hotspot-popup')) {
+          closeAllHotspotPopups();
+        }
+      });
+    }
+
+    const voteModal = document.getElementById('mv-vote-modal');
+    if (voteModal) {
+      voteModal.addEventListener('click', (e) => {
+        if (e.target === voteModal) voteModal.classList.add('hidden');
+      });
+    }
+  }
+
+  function openHotspotPopup(hotspot, anchorEl) {
+    const container = document.getElementById('mv-hotspot-popups');
+    if (!container) return;
+    closeAllHotspotPopups();
+
+    const popup = document.createElement('div');
+    popup.className = 'mv-hotspot-popup';
+    const name = escapeHtml(hotspot.name || '热点');
+    const desc = escapeHtml(hotspot.desc || '点击下方按钮查看详情');
+    const icon = hotspot.icon || '📍';
+    const hasUrl = !!hotspot.url;
+    popup.innerHTML = `
+      <div class="mv-hotspot-popup-header">
+        <span class="mv-hotspot-popup-icon">${icon}</span>
+        <span class="mv-hotspot-popup-title">${name}</span>
+        <button class="mv-hotspot-popup-close" title="关闭">✕</button>
+      </div>
+      <div class="mv-hotspot-popup-body">${desc}</div>
+      <div class="mv-hotspot-popup-actions">
+        ${hasUrl ? `<a class="mv-hotspot-popup-btn primary" href="${escapeAttr(hotspot.url)}" target="_blank">🔗 跳转访问</a>` : ''}
+        <button class="mv-hotspot-popup-btn close-btn">关闭</button>
+      </div>
+    `;
+    container.appendChild(popup);
+
+    if (anchorEl && anchorEl.getBoundingClientRect) {
+      const overlayRect = document.getElementById(`${NAMESPACE}-overlay`).getBoundingClientRect();
+      const r = anchorEl.getBoundingClientRect();
+      const top = Math.max(10, r.top - overlayRect.top - popup.offsetHeight - 12);
+      const left = r.left - overlayRect.left + r.width / 2;
+      popup.style.left = `${left}px`;
+      popup.style.top = `${top}px`;
+      popup.style.transform = 'translateX(-50%)';
+      if (top < 10) {
+        popup.style.top = `${r.bottom - overlayRect.top + 10}px`;
+      }
+    }
+
+    const close = () => popup.remove();
+    const closeBtn = popup.querySelector('.mv-hotspot-popup-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    const closeBtn2 = popup.querySelector('.close-btn');
+    if (closeBtn2) closeBtn2.addEventListener('click', close);
+  }
+
+  function closeAllHotspotPopups() {
+    const container = document.getElementById('mv-hotspot-popups');
+    if (container) container.innerHTML = '';
   }
 
   function triggerApplause(duration) {
     const container = document.getElementById(`${NAMESPACE}-overlay`);
     if (!container) return;
-    const particleCount = 30;
+    const particleCount = 50;
     for (let i = 0; i < particleCount; i++) {
       const particle = document.createElement('div');
       particle.className = 'mv-applause-particle';
-      particle.textContent = ['👏', '🎉', '✨', '🌟'][Math.floor(Math.random() * 4)];
+      particle.textContent = ['👏', '🎉', '✨', '🌟', '💯'][Math.floor(Math.random() * 5)];
       particle.style.left = Math.random() * 100 + '%';
       particle.style.animationDuration = (1 + Math.random() * duration) + 's';
       particle.style.animationDelay = Math.random() * 0.5 + 's';
-      particle.style.fontSize = (14 + Math.random() * 18) + 'px';
+      particle.style.fontSize = (14 + Math.random() * 22) + 'px';
       container.appendChild(particle);
       setTimeout(() => particle.remove(), (duration + 1) * 1000);
     }
@@ -596,7 +742,7 @@
       const pct = Math.floor(Math.random() * 60 + 10);
       const bar = document.createElement('div');
       bar.className = 'mv-vote-result-bar';
-      bar.innerHTML = `<span class="mv-vote-result-label">${opt}</span><div class="mv-vote-result-track"><div class="mv-vote-result-fill" style="width:${pct}%;${i === votedIndex ? 'background:var(--mv-accent)' : ''}"></div></div><span class="mv-vote-result-pct">${pct}%</span>`;
+      bar.innerHTML = `<span class="mv-vote-result-label">${escapeHtml(opt)}</span><div class="mv-vote-result-track"><div class="mv-vote-result-fill" style="width:${pct}%;${i === votedIndex ? 'background:var(--mv-accent)' : ''}"></div></div><span class="mv-vote-result-pct">${pct}%</span>`;
       resultsEl.appendChild(bar);
     });
   }
@@ -645,16 +791,53 @@
   }
 
   function handleNarrate(data) {
-    if ('speechSynthesis' in window && data.text) {
-      const utterance = new SpeechSynthesisUtterance(data.text);
-      utterance.lang = 'zh-CN';
-      utterance.rate = data.rate || 1;
-      const voices = speechSynthesis.getVoices();
-      const match = voices.find(v => v.name === data.voice);
-      if (match) utterance.voice = match;
-      speechSynthesis.speak(utterance);
-      showToast('🎙️ 口播中…');
+    if (!('speechSynthesis' in window) || !data.text) return;
+    const utterance = new SpeechSynthesisUtterance(data.text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = data.rate || 1;
+    const voices = speechSynthesis.getVoices();
+    const match = voices.find(v => v.name === data.voice);
+    if (match) utterance.voice = match;
+    speechSynthesis.speak(utterance);
+    showToast('🎙️ 口播中…');
+  }
+
+  async function handleNarrateAll(data) {
+    if (!('speechSynthesis' in window) || narrationQueueRunning) return;
+    const narrations = (data.narrations || []).filter(n => n && n.text);
+    if (narrations.length === 0) return;
+    narrationQueueRunning = true;
+    const voices = speechSynthesis.getVoices();
+    const match = voices.find(v => v.name === data.voice);
+    const rate = data.rate || 1;
+
+    for (let i = 0; i < narrations.length; i++) {
+      if (!isActive || !narrationQueueRunning) break;
+      const n = narrations[i];
+      const text = n.text;
+      const title = `口播 ${i + 1}/${narrations.length}` + (n.time ? ` · ${n.time}` : '');
+      showToast('🎙️ ' + title);
+      await new Promise(resolve => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = rate;
+        if (match) utterance.voice = match;
+        utterance.onend = () => setTimeout(resolve, 600);
+        utterance.onerror = () => setTimeout(resolve, 600);
+        speechSynthesis.speak(utterance);
+      });
     }
+    narrationQueueRunning = false;
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function escapeAttr(str) {
+    if (str == null) return '';
+    return String(str).replace(/"/g, '&quot;');
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -715,6 +898,9 @@
           break;
         case 'narrate':
           handleNarrate(msg.data);
+          break;
+        case 'narrateAll':
+          handleNarrateAll(msg.data);
           break;
         case 'playBgm':
           playBgm(msg.data.url, msg.data.volume || 0.5);

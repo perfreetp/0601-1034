@@ -215,26 +215,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">议程环节</label>
-          <div id="agenda-items" class="agenda-list">
-            <div class="agenda-item">
-              <div class="agenda-time">
-                <input type="text" class="form-input agenda-input" placeholder="14:00" value="14:00">
-              </div>
-              <div class="agenda-name">
-                <input type="text" class="form-input agenda-input" placeholder="环节名称" value="开场致辞">
-              </div>
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-            <div class="agenda-item">
-              <div class="agenda-time">
-                <input type="text" class="form-input agenda-input" placeholder="14:30" value="14:30">
-              </div>
-              <div class="agenda-name">
-                <input type="text" class="form-input agenda-input" placeholder="环节名称" value="主题演讲">
-              </div>
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-          </div>
+          <div id="agenda-items" class="agenda-list"></div>
           <button id="btn-add-agenda" class="btn-add">+ 添加环节</button>
         </div>
         <div class="form-group">
@@ -359,20 +340,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">展台卡片</label>
-          <div id="booth-cards" class="booth-list">
-            <div class="booth-card-item">
-              <div class="booth-card-color" style="background:#6c5ce7"></div>
-              <input type="text" class="form-input booth-title" placeholder="展台名称" value="产品展示">
-              <input type="text" class="form-input booth-url" placeholder="链接 URL" value="">
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-            <div class="booth-card-item">
-              <div class="booth-card-color" style="background:#00cec9"></div>
-              <input type="text" class="form-input booth-title" placeholder="展台名称" value="技术白皮书">
-              <input type="text" class="form-input booth-url" placeholder="链接 URL" value="">
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-          </div>
+          <div id="booth-cards" class="booth-list"></div>
           <button id="btn-add-booth" class="btn-add">+ 添加展台</button>
         </div>
         <div class="form-group">
@@ -395,36 +363,26 @@
         <h2 class="panel-title">导览设置</h2>
         <p class="panel-desc">设置热点跳转和主持口播</p>
         <div class="form-group">
-          <label class="form-label">热点跳转</label>
-          <div id="hotspot-list" class="hotspot-list">
-            <div class="hotspot-item">
-              <span class="hotspot-marker">📍</span>
-              <input type="text" class="form-input hotspot-name" placeholder="热点名称" value="主舞台">
-              <input type="text" class="form-input hotspot-url" placeholder="跳转 URL">
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-            <div class="hotspot-item">
-              <span class="hotspot-marker">📍</span>
-              <input type="text" class="form-input hotspot-name" placeholder="热点名称" value="休息区">
-              <input type="text" class="form-input hotspot-url" placeholder="跳转 URL">
-              <button class="btn-icon btn-remove" title="删除">✕</button>
-            </div>
-          </div>
+          <label class="form-label">热点跳转 <small style="color:var(--text-muted);font-weight:400">（启动会场后在网页上显示可点击的标记气泡）</small></label>
+          <div id="hotspot-list" class="hotspot-list"></div>
           <button id="btn-add-hotspot" class="btn-add">+ 添加热点</button>
         </div>
         <div class="form-group">
-          <label class="form-label">主持口播</label>
-          <div id="narration-list" class="narration-list">
-            <div class="narration-item">
-              <div class="narration-header">
-                <span class="narration-time">
-                  <input type="text" class="form-input sm" placeholder="14:00" value="14:00">
-                </span>
-                <button class="btn-icon btn-play-narration" title="播放">▶</button>
-              </div>
-              <textarea class="form-textarea" placeholder="口播内容">欢迎各位来到今天的元宇宙会场，让我们开始精彩的活动！</textarea>
-            </div>
+          <label class="form-label">
+            主持口播
+            <small style="color:var(--text-muted);font-weight:400;margin-left:8px">
+              启动会场后按列表顺序自动播放
+            </small>
+          </label>
+          <div class="form-row" style="margin-bottom:8px">
+            <label class="toggle-label">
+              <input type="checkbox" id="narration-autoplay" checked>
+              <span class="toggle-switch"></span>
+              <span>启动会场后按顺序播放</span>
+            </label>
+            <button id="btn-play-all-narration" class="btn-sm" style="margin-left:auto">▶ 播放全部</button>
           </div>
+          <div id="narration-list" class="narration-list"></div>
           <button id="btn-add-narration" class="btn-add">+ 添加口播</button>
         </div>
         <div class="form-group">
@@ -446,8 +404,8 @@
 
       <!-- 复盘面板 -->
       <section class="panel" id="panel-review">
-        <h2 class="panel-title">复盘数据</h2>
-        <p class="panel-desc">导出参与人数、停留时长、互动记录和问题列表</p>
+        <h2 class="panel-title">活动中控台</h2>
+        <p class="panel-desc">实时监控互动数据，按时间和类型筛选并导出</p>
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value" id="stat-participants">0</div>
@@ -466,23 +424,59 @@
             <div class="stat-label">提问数量</div>
           </div>
         </div>
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label class="filter-label">时间范围</label>
+            <select id="filter-time" class="form-select">
+              <option value="all">全部时间</option>
+              <option value="5">近 5 分钟</option>
+              <option value="15">近 15 分钟</option>
+              <option value="30">近 30 分钟</option>
+              <option value="60">近 1 小时</option>
+              <option value="custom">自定义…</option>
+            </select>
+          </div>
+          <div class="filter-group" id="filter-custom-group" style="display:none">
+            <label class="filter-label">起始</label>
+            <input type="time" id="filter-start" class="form-input sm">
+            <label class="filter-label">结束</label>
+            <input type="time" id="filter-end" class="form-input sm">
+          </div>
+          <div class="filter-group filter-type">
+            <label class="filter-label">类型</label>
+            <div class="filter-chips" id="filter-chips">
+              <button class="filter-chip active" data-type="all">全部</button>
+              <button class="filter-chip" data-type="applause" style="color:var(--warning)">👏 鼓掌</button>
+              <button class="filter-chip" data-type="vote" style="color:var(--accent2)">🗳️ 投票</button>
+              <button class="filter-chip" data-type="handraise" style="color:var(--accent)">✋ 举手</button>
+              <button class="filter-chip" data-type="question" style="color:var(--success)">❓ 提问</button>
+            </div>
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">互动记录</label>
+          <div class="section-header">
+            <label class="form-label">互动记录</label>
+            <span class="record-count" id="log-count">共 0 条</span>
+          </div>
           <div id="interaction-log" class="log-list">
             <p class="log-empty">暂无互动记录，启动会场后自动记录</p>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">问题列表</label>
+          <div class="section-header">
+            <label class="form-label">问题列表</label>
+            <span class="record-count" id="question-count">共 0 条</span>
+          </div>
           <div id="question-list" class="log-list">
             <p class="log-empty">暂无提问记录</p>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">数据导出</label>
+          <label class="form-label">数据导出 <small style="color:var(--text-muted);font-weight:400">（按当前筛选结果导出）</small></label>
           <div class="export-row">
             <button class="btn-export" id="btn-export-csv">📄 导出 CSV</button>
             <button class="btn-export" id="btn-export-json">📦 导出 JSON</button>
+            <button class="btn-export" id="btn-refresh-data">🔄 刷新数据</button>
           </div>
         </div>
       </section>
